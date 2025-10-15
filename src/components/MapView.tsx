@@ -43,14 +43,14 @@ function MapClickHandler({
 export default function MapView({
   mode,
   places,
-  target,
+  lastTarget,
   lastResult,
   onGuess,
   onIdentify,
 }: {
   mode: Mode;
   places: Place[];
-  target: Place | null;
+  lastTarget: Place | null;
   lastResult: string;
   onGuess: (lat: number, lng: number) => void;
   onIdentify: (p: Place) => void;
@@ -92,15 +92,15 @@ export default function MapView({
             </CircleMarker>
           ))}
 
-        {mode === "guess-location" && lastResult && target && (
+        {mode === "guess-location" && lastResult && lastTarget && (
           <CircleMarker
-            center={[target.lat, target.lng]}
+            center={[lastTarget.lat, lastTarget.lng]}
             pathOptions={{ color: "#16a34a", fillColor: "#86efac" }}
             radius={9}
             weight={3}
             fillOpacity={0.6}
           >
-            <Popup>{target.name}</Popup>
+            <Popup>{lastTarget.name}</Popup>
           </CircleMarker>
         )}
       </MapContainer>

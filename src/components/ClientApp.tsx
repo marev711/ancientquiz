@@ -61,7 +61,7 @@ export default function ClientApp({
         <MapView
           mode={q.mode}
           places={q.filtered}
-          target={q.target}
+          lastTarget={q.lastTarget}
           lastResult={q.lastResult}
           onGuess={q.guessOnMap}
           onIdentify={q.identify}
