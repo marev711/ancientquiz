@@ -20,7 +20,7 @@ export const MAP_CONFIG = {
 
 // Quiz default settings
 export const QUIZ_DEFAULTS = {
-  TOLERANCE_KM: 100,
+  TOLERANCE_KM: 300,
   ROUND_SIZE: 10,
   MAX_HISTORY: 10,
   DEFAULT_CATEGORY: "Alla",
