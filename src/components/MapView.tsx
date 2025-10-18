@@ -2,10 +2,11 @@
 import dynamic from "next/dynamic";
 import "leaflet/dist/leaflet.css";
 import type { Place, Mode } from "@/types";
-import type { LeafletMouseEvent } from "leaflet";
 import { useMemo, useRef } from "react";
 import type { Map as LeafletMap } from "leaflet";
-import { useMapEvents } from "react-leaflet";
+import { MapClickHandler, TargetViewManager } from "./map/MapComponents";
+import { IdentifyMarker, AnswerMarker } from "./map/MapMarkers";
+import { MAP_CONFIG, TILE_LAYER } from "@/lib/constants";
 
 const MapContainer = dynamic(
   async () => (await import("react-leaflet")).MapContainer,
@@ -15,93 +16,61 @@ const TileLayer = dynamic(
   async () => (await import("react-leaflet")).TileLayer,
   { ssr: false }
 );
-const CircleMarker = dynamic(
-  async () => (await import("react-leaflet")).CircleMarker,
-  { ssr: false }
-);
-const Popup = dynamic(async () => (await import("react-leaflet")).Popup, {
-  ssr: false,
-});
 
-function MapClickHandler({
-  mode,
-  onGuess,
-}: {
+interface MapViewProps {
   mode: Mode;
+  places: Place[];
+  target: Place | null;
+  lastTarget: Place | null;
+  lastResult: string;
   onGuess: (lat: number, lng: number) => void;
-}) {
-  useMapEvents({
-    click: (e: LeafletMouseEvent) => {
-      if (mode === "guess-location") {
-        onGuess(e.latlng.lat, e.latlng.lng);
-      }
-    },
-  });
-  return null;
+  onIdentify: (p: Place) => void;
+  toleranceKm: number;
 }
 
 export default function MapView({
   mode,
   places,
+  target,
   lastTarget,
   lastResult,
   onGuess,
   onIdentify,
-}: {
-  mode: Mode;
-  places: Place[];
-  lastTarget: Place | null;
-  lastResult: string;
-  onGuess: (lat: number, lng: number) => void;
-  onIdentify: (p: Place) => void;
-}) {
-  const center = useMemo<[number, number]>(() => [32, 39], []);
-  const zoom = 5;
+  toleranceKm,
+}: MapViewProps) {
+  const center = useMemo<[number, number]>(() => MAP_CONFIG.DEFAULT_CENTER, []);
   const mapRef = useRef<LeafletMap | null>(null);
 
+  // Use target (not lastTarget) for view management to ensure new questions trigger adjustment
+  const viewTarget = mode === "guess-location" ? target : null;
+  const identifyPlaces = mode === "identify-marker" ? places : [];
+
   return (
-    <div className="h-[70vh] md:h-[75vh] w-full rounded-2xl overflow-hidden shadow">
+    <div className="h-[calc(100dvh-280px)] md:h-[75vh] w-full rounded-xl md:rounded-2xl overflow-hidden shadow">
       <MapContainer
         center={center}
-        zoom={zoom}
+        zoom={MAP_CONFIG.DEFAULT_ZOOM}
         style={{ height: "100%", width: "100%" }}
         ref={mapRef}
       >
         <MapClickHandler mode={mode} onGuess={onGuess} />
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+        <TargetViewManager
+          target={viewTarget}
+          places={identifyPlaces}
+          mode={mode}
         />
 
+        <TileLayer url={TILE_LAYER.URL} attribution={TILE_LAYER.ATTRIBUTION} />
+
+        {/* Render markers for identify mode */}
         {mode === "identify-marker" &&
           places.map((p) => (
-            <CircleMarker
-              key={p.id}
-              center={[p.lat, p.lng]}
-              pathOptions={{ color: "#2563eb", fillColor: "#60a5fa" }}
-              radius={7}
-              weight={2}
-              fillOpacity={0.7}
-              eventHandlers={{ click: () => onIdentify(p) }}
-            >
-              <Popup>
-                <div style={{ fontWeight: 600 }}>{p.name}</div>
-                <div style={{ fontSize: 12, opacity: 0.8 }}>{p.era || ""}</div>
-                <div style={{ fontSize: 12 }}>{p.note || ""}</div>
-              </Popup>
-            </CircleMarker>
+            <IdentifyMarker key={p.id} place={p} onIdentify={onIdentify} />
           ))}
 
+        {/* Render answer marker for guess mode */}
         {mode === "guess-location" && lastResult && lastTarget && (
-          <CircleMarker
-            center={[lastTarget.lat, lastTarget.lng]}
-            pathOptions={{ color: "#16a34a", fillColor: "#86efac" }}
-            radius={9}
-            weight={3}
-            fillOpacity={0.6}
-          >
-            <Popup>{lastTarget.name}</Popup>
-          </CircleMarker>
+          <AnswerMarker place={lastTarget} toleranceKm={toleranceKm} />
         )}
       </MapContainer>
     </div>

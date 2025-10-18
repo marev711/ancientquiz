@@ -1,10 +1,14 @@
 "use client";
+import { useState, useEffect } from "react";
+import type { Place } from "@/types";
+import { useQuiz } from "@/hooks/useQuiz";
+import Header from "@/components/Header";
 import Controls from "@/components/Controls";
 import MapView from "@/components/MapView";
 import Scorebar from "@/components/Scorebar";
 import ResultsList from "@/components/ResultsList";
-import { useQuiz } from "@/hooks/useQuiz";
-import type { Place } from "@/types";
+import MobileDrawer from "@/components/MobileDrawer";
+import CompletionToast from "@/components/CompletionToast";
 
 export default function ClientApp({
   initialPlaces,
@@ -12,7 +16,16 @@ export default function ClientApp({
   initialPlaces: Place[];
 }) {
   const q = useQuiz(initialPlaces);
-  console.log(q.places);
+  const [showControls, setShowControls] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [showCompletionToast, setShowCompletionToast] = useState(false);
+
+  // Show completion toast when round finishes (only once)
+  useEffect(() => {
+    if (q.finished) {
+      setShowCompletionToast(true);
+    }
+  }, [q.finished]);
 
   if (!q.places.length || !q.target) {
     return (
@@ -23,31 +36,55 @@ export default function ClientApp({
   }
 
   return (
-    <main className="pb-12">
-      <header className="bg-gradient-to-r from-indigo-500/20 to-emerald-500/20 dark:from-indigo-500/10 dark:to-emerald-500/10 border-b">
-        <div className="container py-6">
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-            Kart-quiz: Historiska & geografiska platser i Mellanöstern
-          </h1>
-          <p className="text-slate-600 dark:text-slate-300 mt-1">
-            Välj läge, svårighet och antal frågor.
-          </p>
-        </div>
-      </header>
-
-      <Controls
-        categories={q.categories}
-        category={q.category}
-        setCategory={q.setCategory}
-        mode={q.mode}
-        setMode={q.setMode}
-        toleranceKm={q.toleranceKm}
-        setToleranceKm={q.setToleranceKm}
-        roundSize={q.roundSize}
-        setRoundSize={q.setRoundSize}
-        onReset={q.resetRound}
+    <main className="min-h-dvh flex flex-col">
+      <Header
+        onToggleControls={() => setShowControls(!showControls)}
+        onToggleResults={() => setShowResults(!showResults)}
       />
 
+      {/* Collapsible Controls - Mobile */}
+      <div
+        className={`md:hidden overflow-hidden transition-all ${
+          showControls ? "max-h-96" : "max-h-0"
+        }`}
+      >
+        <Controls
+          categories={q.categories}
+          category={q.category}
+          setCategory={q.setCategory}
+          mode={q.mode}
+          setMode={q.setMode}
+          toleranceKm={q.toleranceKm}
+          setToleranceKm={q.setToleranceKm}
+          roundSize={q.roundSize}
+          setRoundSize={q.setRoundSize}
+          onReset={() => {
+            q.resetRound();
+            setShowCompletionToast(false);
+          }}
+        />
+      </div>
+
+      {/* Desktop Controls */}
+      <div className="hidden md:block">
+        <Controls
+          categories={q.categories}
+          category={q.category}
+          setCategory={q.setCategory}
+          mode={q.mode}
+          setMode={q.setMode}
+          toleranceKm={q.toleranceKm}
+          setToleranceKm={q.setToleranceKm}
+          roundSize={q.roundSize}
+          setRoundSize={q.setRoundSize}
+          onReset={() => {
+            q.resetRound();
+            setShowCompletionToast(false);
+          }}
+        />
+      </div>
+
+      {/* Compact Scorebar */}
       <Scorebar
         target={q.target}
         score={q.score}
@@ -57,22 +94,46 @@ export default function ClientApp({
         finished={q.finished}
       />
 
-      <div className="container mt-6 grid gap-6 lg:grid-cols-[1fr_360px]">
+      {/* Map and Results */}
+      <div className="container flex-1 mt-3 md:mt-6 grid gap-4 md:gap-6 lg:grid-cols-[1fr_360px] pb-4 md:pb-12">
         <MapView
           mode={q.mode}
           places={q.filtered}
+          target={q.target}
           lastTarget={q.lastTarget}
           lastResult={q.lastResult}
           onGuess={q.guessOnMap}
           onIdentify={q.identify}
+          toleranceKm={q.toleranceKm}
         />
-        <ResultsList history={q.history} />
+
+        {/* Desktop Results */}
+        <div className="hidden lg:block">
+          <ResultsList history={q.history} />
+        </div>
       </div>
 
-      <footer className="container mt-8 text-xs text-slate-500">
-        Kartdata: © OpenStreetMap-medverkande · Dataset från statisk JSON (ingen
-        API-route).
+      {/* Mobile Results Drawer */}
+      <MobileDrawer
+        isOpen={showResults}
+        onClose={() => setShowResults(false)}
+        title="Resultat"
+      >
+        <ResultsList history={q.history} />
+      </MobileDrawer>
+
+      {/* Compact Footer */}
+      <footer className="container py-2 text-xs text-slate-500 text-center hidden md:block">
+        Kartdata: © OpenStreetMap-medverkande
       </footer>
+
+      {/* Completion Toast */}
+      <CompletionToast
+        isVisible={showCompletionToast}
+        onClose={() => setShowCompletionToast(false)}
+        score={q.score}
+        roundSize={q.roundSize}
+      />
     </main>
   );
 }
